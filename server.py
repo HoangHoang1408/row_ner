@@ -5,8 +5,8 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from bootstraping import embed_database
-from utils.tei_utils import TEIClient
+from src.bootstraping import bootstrap
+from src.utils.tei_utils import TEIClient
 
 app = FastAPI()
 
@@ -26,7 +26,8 @@ with open("resources/database_file.json", "r") as file:
     database = json.load(file)
 
 
-field_indexes, field_mappings = embed_database(database, tei_client, embedding_batch_size)
+field_indexes, field_mappings = bootstrap(database, tei_client, embedding_batch_size)
+
 
 @app.get("/")
 def read_root():
