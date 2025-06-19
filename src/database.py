@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import pickle
@@ -5,6 +6,9 @@ from typing import Dict, List
 
 import faiss
 import numpy as np
+from dotenv import load_dotenv
+
+from src.utils.tei_utils import TEIClient
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +74,7 @@ def load_mappings(path):
         return pickle.load(f)
 
 
-def bootstrap(
+def bootstrap_indices(
     database, tei_client, embedding_batch_size, index_dir="resources/faiss_indices"
 ):
     os.makedirs(index_dir, exist_ok=True)
@@ -104,3 +108,30 @@ def bootstrap(
         save_mappings(field_mappings[field], mapping_path)
     logger.info("Created and saved FAISS indices and mappings.")
     return field_indexes, field_mappings
+
+
+def load_indices():
+    load_dotenv()
+    embedding_server = os.getenv("EMBEDDING_SERVER")
+    embedding_batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE"))
+    logger.info(f"Loading TEIClient with server: {embedding_server}")
+    tei_client = TEIClient(embedding_server)
+    logger.info("Loading database from resources/database_file.json")
+    with open("resources/database_file.json", "r") as file:
+        database = json.load(file)
+    logger.info("Bootstrapping or loading FAISS indices and mappings...")
+    field_indexes, field_mappings = bootstrap_indices(
+        database, tei_client, embedding_batch_size
+    )
+    logger.info("Indices and mappings are ready.")
+    return tei_client, database, field_indexes, field_mappings
+
+
+tei_client, database, field_indexes, field_mappings = load_indices()
+
+
+def find_row(query_value, query_field, top_k=1):
+    index = field_indexes[query_field]
+    query_embedding = tei_client.embed([query_value])
+    _, indices = index.search(query_embedding, top_k)
+    return [field_mappings[query_field][i] for i in indices[0]]
